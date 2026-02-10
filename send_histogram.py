@@ -71,11 +71,13 @@ def main():
     # Ensure endpoint ends with /v1/metrics for the exporter
     metrics_endpoint = endpoint.rstrip("/") + "/v1/metrics"
 
-    # Configure SSL session if needed
-    session = None
+    # Configure SSL verification
     if insecure_ssl:
-        session = requests.Session()
-        session.verify = False
+        # Set environment variable to disable SSL verification
+        # The OTLP exporter defaults certificate_file=True, so we override it
+        os.environ['OTEL_EXPORTER_OTLP_CERTIFICATE'] = ''
+        os.environ['OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE'] = ''
+        
         # Suppress only the single InsecureRequestWarning from urllib3
         import urllib3
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -86,7 +88,6 @@ def main():
     exporter = OTLPMetricExporter(
         endpoint=metrics_endpoint,
         headers={"Authorization": f"Api-Token {token}"},
-        session=session,
         preferred_temporality={
             Histogram: AggregationTemporality.DELTA,
         },
