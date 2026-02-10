@@ -3,8 +3,9 @@
 Send OTLP histogram metrics to Dynatrace Managed using OpenTelemetry SDK.
 
 Environment variables:
-  DT_ENDPOINT  -> e.g. https://<cluster>/e/<env-id>/api/v2/otlp
-  DT_API_TOKEN -> Dynatrace API token with OTLP ingest permission
+  DT_ENDPOINT        -> e.g. https://<cluster>/e/<env-id>/api/v2/otlp
+  DT_API_TOKEN       -> Dynatrace API token with OTLP ingest permission
+  INSECURE_SSL=true  -> (optional) Disable SSL verification for self-signed certs
 
 Usage:
   source venv/bin/activate
@@ -23,6 +24,7 @@ import sys
 import time
 import argparse
 import random
+import requests
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, AggregationTemporality
@@ -58,6 +60,7 @@ def main():
     # Get configuration from environment
     endpoint = os.environ.get("DT_ENDPOINT", "").strip()
     token = os.environ.get("DT_API_TOKEN", "").strip()
+    insecure_ssl = os.environ.get("INSECURE_SSL", "").lower() in ("true", "1", "yes")
 
     if not endpoint or not token:
         print("ERROR: Please set DT_ENDPOINT and DT_API_TOKEN.", file=sys.stderr)
@@ -68,11 +71,22 @@ def main():
     # Ensure endpoint ends with /v1/metrics for the exporter
     metrics_endpoint = endpoint.rstrip("/") + "/v1/metrics"
 
+    # Configure SSL session if needed
+    session = None
+    if insecure_ssl:
+        session = requests.Session()
+        session.verify = False
+        # Suppress only the single InsecureRequestWarning from urllib3
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        print("WARNING: SSL verification disabled (INSECURE_SSL=true)")
+
     # Configure OTLP exporter with protobuf over HTTP
     # Dynatrace requires DELTA temporality for histograms
     exporter = OTLPMetricExporter(
         endpoint=metrics_endpoint,
         headers={"Authorization": f"Api-Token {token}"},
+        session=session,
         preferred_temporality={
             Histogram: AggregationTemporality.DELTA,
         },
