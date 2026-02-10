@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otlp-histogram-sender
+  namespace: otlp-histogram
+  labels:
+    app: otlp-histogram-sender
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otlp-histogram-sender
+  template:
+    metadata:
+      labels:
+        app: otlp-histogram-sender
+    spec:
+      containers:
+      - name: histogram-sender
+        image: ghcr.io/ihudak/otlp_histogram:latest
+        imagePullPolicy: Always
+        env:
+        - name: DT_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: otlp-histogram-config
+              key: DT_ENDPOINT
+        - name: INSECURE_SSL
+          valueFrom:
+            configMapKeyRef:
+              name: otlp-histogram-config
+              key: INSECURE_SSL
+        - name: INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: otlp-histogram-config
+              key: INTERVAL
+        - name: DT_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: otlp-histogram-secret
+              key: DT_API_TOKEN
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      restartPolicy: Always
